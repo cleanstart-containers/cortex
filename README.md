@@ -1,128 +1,156 @@
-**CleanStart Container for Cortex**
+Cortex – CleanStart Image (cleanstart/cortex:latest-dev)
 
-Cortex is an open-source, horizontally scalable machine learning platform designed for managing and deploying ML models in production. This container provides a secure, enterprise-ready environment for running Cortex workloads with built-in monitoring, autoscaling, and model versioning capabilities. The image includes optimized ML runtime dependencies and security hardening for production deployments.
+A production-grade, multi-tenant, horizontally scalable, long-term Prometheus metrics storage system — packaged in a simplified, ready-to-run container image by CleanStart.
 
-📌 **CleanStart Foundation**: Security-hardened, minimal base OS designed for enterprise containerized environments.
+Overview
 
-**Key Features**
-* Automated model deployment and scaling
-* Real-time prediction API generation
-* Built-in monitoring and logging integration
-* Enterprise-grade security controls and access management
+The CleanStart Cortex image provides a fully integrated, single-binary deployment of the Cortex project. It is designed for local clusters, development setups, automated testing, CI pipelines, and learning environments that need a complete Cortex stack without the operational overhead of multi-component deployments.
 
-**Common Use Cases**
-* Production ML model serving
-* Automated ML pipeline orchestration
-* Real-time prediction services
-* Scalable AI application deployment
+This image bundles all core Cortex services into one optimized container runtime and includes sensible defaults, pre-created storage directories, and runtime readiness optimizations.
 
-**Quick Start**
+Key Features
+ All-in-One Cortex Deployment
 
-**Pull Latest Image**
-Download the container image from the registry
-
+The image includes the full Cortex stack:
 ```bash
-docker pull cleanstart/cortex:latest
-docker pull cleanstart/cortex:latest-dev
+Distributor
+
+Ingester
+
+Querier
+
+Query-Frontend
+
+Alertmanager
+
+Ruler
+
+Compactor
+
+Store-Gateway
 ```
+All components run in a single binary while still exposing individual functionality through the standard Cortex APIs.
 
-**Basic Run**
-Run the container with basic configuration
+**Health and Debug Endpoints:**
 
-```bash
-docker run -it --name cortex-test cleanstart/cortex:latest-dev
-```
+Exports built-in Cortex diagnostics:
 
-**Production Deployment**
-Deploy with production security settings
+/ready – readiness status
 
-```bash
-docker run -d --name cortex-prod \
-  --read-only \
-  --security-opt=no-new-privileges \
-  --user 1000:1000 \
-  cleanstart/cortex:latest
-```
+/services – running internal services overview
 
-**Volume Mount**
-Mount local directory for persistent data
+/config – live configuration dump
 
-```bash
-docker run -v $(pwd)/data:/data cleanstart/cortex:latest
-```
+/metrics – Prometheus metrics for the Cortex process
 
-**Port Forwarding**
-Run with custom port mappings
+/ingester/ring – ring visualizer for ingesters
 
-```bash
-docker run -p 8080:80 cleanstart/cortex:latest
-```
+Useful for validation, monitoring, debugging, and load experimentation.
 
-**Configuration**
+**The image is lightweight and pre-configured for:**
 
-**Environment Variables**
+Local test clusters (prod image(cleanstart/cortex:latest) can be used for prod use case)
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| PATH | /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin | System PATH configuration |
-| CORTEX_OPERATOR_ENDPOINT | localhost:8888 | Endpoint for the Cortex operator service |
+Ephemeral deployments
 
-**Security & Best Practices**
+Educational or POC environments
 
-**Recommended Security Context**
+Developer workflows that need a full metrics backend quickly
 
-```yaml
-securityContext:
-  runAsNonRoot: true
-  runAsUser: 1000
-  runAsGroup: 1000
-  readOnlyRootFilesystem: true
-  allowPrivilegeEscalation: false
-  capabilities:
-    drop: ['ALL']
-```
+**CI/CD Friendly:**
 
-**Best Practices**
-* Use specific image tags for production (avoid latest)
-* Configure resource limits: memory and CPU constraints
-* Enable read-only root filesystem when possible
-* Run containers with non-root user (--user 1000:1000)
-* Use --security-opt=no-new-privileges flag
-* Regularly update container images for security patches
-* Implement proper network segmentation
-* Monitor container metrics for anomalies
+Because it is:
 
-**Architecture Support**
+Single container
 
-**Multi-Platform Images**
+Fast to pull
 
-```bash
-docker pull --platform linux/amd64 cleanstart/cortex:latest
-docker pull --platform linux/arm64 cleanstart/cortex:latest
-```
+**Minimal configuration required**
+It fits perfectly into automated pipelines that need:
 
-**Resources & Documentation**
+Metrics ingestion tests
 
-**Essential Links**
-* **CleanStart Website**: https://www.cleanstart.com
-* **Cortex Documentation**: https://docs.cortex.dev
+API compliance checks
 
-**Reference:**
+Observability validation
 
-CleanStart Community Images: https://hub.docker.com/u/cleanstart 
+Development of Prometheus exporters
 
-Get more from CleanStart images from https://github.com/clnstrt/cleanstart-containers/tree/main/containers⁠, 
+**CleanStart Enhancements:**
 
-  -  how-to-Run sample projects using dockerfile 
-  -  how-to-Deploy via Kubernete YAML 
-  -  how-to-Migrate from public images to CleanStart images
+Compared to a raw upstream Cortex binary, this image includes:
 
----
+Cleaner directory creation logic
 
-# Vulnerability Disclaimer
+Pre-baked configuration path layout
 
-CleanStart offers Docker images that include third-party open-source libraries and packages maintained by independent contributors. While CleanStart maintains these images and applies industry-standard security practices, it cannot guarantee the security or integrity of upstream components beyond its control.
+Improved readiness gating
 
-Users acknowledge and agree that open-source software may contain undiscovered vulnerabilities or introduce new risks through updates. CleanStart shall not be liable for security issues originating from third-party libraries, including but not limited to zero-day exploits, supply chain attacks, or contributor-introduced risks.
+Simplified startup behavior
 
-Security remains a shared responsibility: CleanStart provides updated images and guidance where possible, while users are responsible for evaluating deployments and implementing appropriate controls.
+Dev-friendly startup messages
+
+More consistent port exposure
+
+**Typical Use Cases:**
+
+Explore Cortex in a local cluster
+
+Build dashboards using long-term metrics storage
+
+Test Prometheus remote write integrations
+
+Run observability backends inside CI
+
+Validate multi-tenant behavior
+
+Develop exporter metrics and observe ingestion in real time
+
+Research distributed Prometheus storage models
+
+**Included Components:**
+Cortex Core Subsystems
+Subsystem	Description
+Distributor	Receives metrics via remote write
+Ingester	Buffers, processes, and writes TSDB blocks
+Querier	Executes PromQL queries
+Query Frontend	Adds caching, batching, and parallelization
+Alertmanager	Multi-tenant alerting management
+Ruler	Evaluates rules and alerts
+Compactor	Performs TSDB block compaction
+Store Gateway	Loads and serves long-term storage blocks
+
+**Observability and Debugging:**
+
+The image exposes Cortex’s internal status endpoints for:
+
+Component health
+
+Build information
+
+Runtime metrics
+
+Configuration
+
+Storage and ingester ring conditions
+
+This allows deep visibility into Cortex internals during development or testing.
+
+**Summary:**
+
+The CleanStart Cortex dev Image offers a powerful, developer-friendly way to run the entire Cortex ecosystem in a single lightweight container — ideal for testing, learning, demos, local observability labs, and CI pipelines.
+Once tested, prod image can be used for production environments.
+
+You get:
+
+Full Cortex functionality
+
+Multi-tenancy and long-term storage
+
+Prometheus compatibility
+
+Built-in service diagnostics
+
+Zero-configuration bootstrap
+
+All bundled into one simple image.

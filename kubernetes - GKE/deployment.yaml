@@ -1,25 +1,253 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cortex
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cortex-config
+  namespace: cortex
+data:
+  config.yaml: |
+    # Cortex configuration for Kubernetes
+    target: all
+
+    server:
+      http_listen_port: 9009
+      grpc_listen_port: 9095
+      log_level: info
+
+    # Configure alertmanager with external URL
+    alertmanager:
+      external_url: http://cortex-service:9009/alertmanager
+      data_dir: /data/cortex-alertmanager
+      enable_api: true
+      sharding_ring:
+        replication_factor: 1
+        kvstore:
+          store: inmemory
+
+    # Alertmanager storage (use local instead of S3)
+    alertmanager_storage:
+      backend: local
+      local:
+        path: /data/cortex-alertmanager
+
+    # Use filesystem storage for blocks
+    storage:
+      engine: blocks
+
+    blocks_storage:
+      backend: filesystem
+      filesystem:
+        dir: /data/cortex-data
+      tsdb:
+        dir: /data/cortex-tsdb
+      bucket_store:
+        sync_dir: /data/cortex-sync
+
+    # Ingester configuration
+    ingester:
+      lifecycler:
+        ring:
+          kvstore:
+            store: inmemory
+          replication_factor: 1
+        num_tokens: 128
+        heartbeat_period: 5s
+        join_after: 0s
+        min_ready_duration: 0s
+        final_sleep: 0s
+
+    # Distributor configuration
+    distributor:
+      pool:
+        health_check_ingesters: true
+
+    # Compactor configuration
+    compactor:
+      data_dir: /data/cortex-compactor
+      sharding_ring:
+        kvstore:
+          store: inmemory
+
+    # Store gateway configuration
+    store_gateway:
+      sharding_ring:
+        replication_factor: 1
+        kvstore:
+          store: inmemory
+
+    # Ruler configuration (use local storage)
+    ruler:
+      enable_api: true
+      rule_path: /data/cortex-rules
+      ring:
+        kvstore:
+          store: inmemory
+
+    ruler_storage:
+      backend: local
+      local:
+        directory: /data/cortex-rules
+
+    # Limits
+    limits:
+      ingestion_rate: 100000
+      ingestion_burst_size: 200000
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cortex-storage
+  namespace: cortex
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: cortex-app
+  name: cortex
+  namespace: cortex
+  labels:
+    app: cortex
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: cortex-app
+      app: cortex
   template:
     metadata:
       labels:
-        app: cortex-app
+        app: cortex
     spec:
+      securityContext:
+        fsGroup: 0
+        runAsUser: 0
+        runAsNonRoot: false
+      initContainers:
+      - name: init-dirs
+        image: busybox:latest
+        command: ['sh', '-c']
+        args:
+          - |
+            mkdir -p /data/cortex-data \
+                     /data/cortex-tsdb \
+                     /data/cortex-compactor \
+                     /data/cortex-rules \
+                     /data/cortex-alertmanager \
+                     /data/cortex-sync
+            chmod -R 777 /data
+            ls -la /data
+        volumeMounts:
+        - name: storage
+          mountPath: /data
       containers:
-      - name: cortex-app
+      - name: cortex
         image: cleanstart/cortex:latest-dev
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          runAsUser: 0
+          allowPrivilegeEscalation: false
+        args:
+          - -config.file=/etc/cortex/config.yaml
         ports:
-        - containerPort: 8080
+        - name: http
+          containerPort: 9009
+          protocol: TCP
+        - name: grpc
+          containerPort: 9095
+          protocol: TCP
+        volumeMounts:
+        - name: config
+          mountPath: /etc/cortex
+          readOnly: true
+        - name: storage
+          mountPath: /data
         livenessProbe:
           httpGet:
-            path: /
-            port: 8080
+            path: /ready
+            port: 9009
+          initialDelaySeconds: 45
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 9009
           initialDelaySeconds: 30
-          periodSeconds: 30
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+      volumes:
+      - name: config
+        configMap:
+          name: cortex-config
+          items:
+          - key: config.yaml
+            path: config.yaml
+      - name: storage
+        persistentVolumeClaim:
+          claimName: cortex-storage
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cortex-service
+  namespace: cortex
+  labels:
+    app: cortex
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 9009
+    targetPort: 9009
+    protocol: TCP
+  - name: grpc
+    port: 9095
+    targetPort: 9095
+    protocol: TCP
+  selector:
+    app: cortex
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cortex-nodeport
+  namespace: cortex
+  labels:
+    app: cortex
+spec:
+  type: NodePort
+  ports:
+  - name: http
+    port: 9009
+    targetPort: 9009
+    nodePort: 30009
+    protocol: TCP
+  - name: grpc
+    port: 9095
+    targetPort: 9095
+    nodePort: 30095
+    protocol: TCP
+  selector:
+    app: cortex
