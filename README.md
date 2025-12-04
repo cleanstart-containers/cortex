@@ -4,9 +4,9 @@ A production-grade, multi-tenant, horizontally scalable, long-term Prometheus me
 
 **📌 CleanStart Foundation:** Security-hardened, minimal base OS designed for enterprise containerized environments.
 
-**Image Path:** `cleanstart/cortex`
+**Image Path:** `ghcr.io/cleanstart-containers/cortex`
 
-**Image:** `cleanstart/cortex:latest-dev`
+**Image:** `ghcr.io/cleanstart-containers/cortex:latest-dev`
 
 **Registry:** CleanStart Registry
 
@@ -36,7 +36,7 @@ CleanStart images are built on secure, minimal base operating systems and optimi
 - **Enterprise Compliance**: Meets industry standards including FIPS, STIG, and CIS benchmarks
 - **Regular Updates**: Automated security patches and vulnerability management
 - **Multi-Architecture Support**: Available for AMD64 and ARM64 architectures
-- **Production Ready**: Optimized for enterprise deployment and scaling (`cleanstart/cortex:latest`)
+- **Production Ready**: Optimized for enterprise deployment and scaling (`ghcr.io/cleanstart-containers/cortex:latest`)
 - **Comprehensive Documentation**: Detailed guides and best practices for each image
 
 ---
@@ -99,7 +99,7 @@ Useful for validation, monitoring, debugging, and load experimentation.
 - Develop exporter metrics and observe ingestion in real time
 - Research distributed Prometheus storage models
 - Local test clusters (dev image)
-- Production deployments (`cleanstart/cortex:latest`)
+- Production deployments (`ghcr.io/cleanstart-containers/cortex:latest`)
 - Ephemeral deployments
 - Educational or POC environments
 - Developer workflows that need a full metrics backend quickly
@@ -138,15 +138,15 @@ Compared to a raw upstream Cortex binary, this image includes:
 
 ### Pull Commands
 ```bash
-docker pull cleanstart/cortex:latest
-docker pull cleanstart/cortex:latest-dev
+docker pull ghcr.io/cleanstart-containers/cortex:latest
+docker pull ghcr.io/cleanstart-containers/cortex:latest-dev
 ```
 
 ### Run Commands
 
 Basic test:
 ```bash
-docker run -it --name cortex-test cleanstart/cortex:latest-dev
+docker run -it --name cortex-test ghcr.io/cleanstart-containers/cortex:latest-dev
 ```
 
 Production deployment:
@@ -155,7 +155,7 @@ docker run -d --name cortex-prod \
   --read-only \
   --security-opt=no-new-privileges \
   --user 1000:1000 \
-  cleanstart/cortex:latest
+  ghcr.io/cleanstart-containers/cortex:latest
 ```
 
 ---
@@ -183,8 +183,8 @@ CleanStart images support multiple architectures to ensure compatibility across 
 
 ### Architecture-based Pull Commands
 ```bash
-docker pull --platform linux/amd64 cleanstart/cortex:latest
-docker pull --platform linux/arm64 cleanstart/cortex:latest
+docker pull --platform linux/amd64 ghcr.io/cleanstart-containers/cortex:latest
+docker pull --platform linux/arm64 ghcr.io/cleanstart-containers/cortex:latest
 ```
 
 ---
@@ -193,7 +193,7 @@ docker pull --platform linux/arm64 cleanstart/cortex:latest
 
 The CleanStart Cortex dev Image offers a powerful, developer-friendly way to run the entire Cortex ecosystem in a single lightweight container — ideal for testing, learning, demos, local observability labs, and CI pipelines.
 
-Once tested, prod image (`cleanstart/cortex:latest`) can be used for production environments.
+Once tested, prod image (`ghcr.io/cleanstart-containers/cortex:latest`) can be used for production environments.
 
 You get:
 - Full Cortex functionality
