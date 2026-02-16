@@ -211,7 +211,7 @@ You get:
 - **Cortex GitHub Repository:** https://github.com/cortexproject/cortex
 - **Provenance / SBOM / Signature:** https://images.cleanstart.com/images/cortex
 - **Docker Hub:** https://hub.docker.com/r/cleanstart/cortex
-- **CleanStart All Images:** https://images.cleanstart.com
+- **CleanStart All Images:** https://images.cleanstart.com/images/cortex/details
 - **CleanStart Community Images:** https://hub.docker.com/u/cleanstart
 
 ---
