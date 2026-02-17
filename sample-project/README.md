@@ -18,257 +18,101 @@ Cortex provides:
 cortex-sample-project/
 ├── Dockerfile              # Custom Cortex image with configuration
 ├── cortex-config.yaml      # Cortex configuration file
-└── README.md              # This file
+├── docker-compose.yml      # Cortex + Prometheus + metrics server
+├── prometheus-docker.yml   # Prometheus config (scrape metrics, remote_write to Cortex)
+├── serve_metrics.py        # Serves test-metric.txt for Prometheus scrape
+├── test-metric.txt         # Sample metric (exposition format)
+└── README.md               # This file
 ```
 
-## Testing Steps
+## Run with Docker Compose
 
-### Step 1: Build Docker Image
+From the project directory:
+
+### 1. Start all services
 ```bash
-docker build -t cortex-simple:v1 .
+docker compose up -d --build
 ```
 
-**Expected Output:**
-```
-[+] Building 1.4s (8/8) FINISHED
- => [3/3] COPY cortex-config.yaml /etc/cortex/config.yaml
- => exporting to image
- => => naming to docker.io/library/cortex-simple:v1
-```
+Cortex, the metrics server, and Prometheus start. Prometheus scrapes the metrics server. (Remote write to Cortex is disabled due to a compatibility issue between the Cortex base image and Prometheus’s remote-write format.)
 
-### Step 2: Run Cortex Container
-```bash
-docker run -d \
-  --name cortex-simple \
-  -p 9009:9009 \
-  -p 9095:9095 \
-  cortex-simple:v1
-```
-
-**Expected Output:**
-```
-<container_id>
-```
-
-### Step 3: Verify Container is Running
-```bash
-docker ps | grep cortex-simple
-```
-
-**Expected Output:**
-```
-CONTAINER ID   IMAGE              PORTS                                              STATUS
-<id>           cortex-simple:v1   0.0.0.0:9009->9009/tcp, 0.0.0.0:9095->9095/tcp    Up X seconds
-```
-
-### Step 4: Check Container Logs
-```bash
-docker logs cortex-simple
-```
-
-**Expected Output (Success Indicators):**
-```
-ts=... msg="Starting Cortex" version="(version=1.20.0...)"
-ts=... msg="server listening on addresses" http=[::]:9009 grpc=[::]:9095
-ts=... msg="Cortex started"
-ts=... msg="gossip settled; proceeding"
-```
-
-### Step 5: Health Check
+### 2. Verify Cortex is ready
 ```bash
 curl http://localhost:9009/ready
 ```
+**Expected:** `ready`
 
-**Expected Output:**
-```
-ready
+### 3. Check container status and logs
+```bash
+docker compose ps
+docker compose logs cortex
 ```
 
-### Step 6: Check Running Services
+### 4. Check running services
 ```bash
 curl http://localhost:9009/services
 ```
+**Expected:** HTML listing alertmanager, compactor, distributor, ingester, querier, query-frontend, ruler, store-gateway.
 
-**Expected Output (HTML page showing):**
-```
-Service                      | Status
------------------------------|--------
-alertmanager                 | Running
-compactor                    | Running
-distributor-service          | Running
-ingester-service             | Running
-querier                      | Running
-query-frontend               | Running
-ruler                        | Running
-store-gateway                | Running
-```
-
-### Step 7: Check Build Information
+### 5. Check build information
 ```bash
 curl http://localhost:9009/metrics | grep cortex_build_info
 ```
 
-**Expected Output:**
-```
-cortex_build_info{branch="master",goarch="amd64",goos="linux",
-goversion="go1.25.4",revision="b72a536fe...",version="1.20.0"} 1
-```
-
-### Step 8: Check Ingester Ring
+### 6. Check ingester ring
 ```bash
 curl http://localhost:9009/ingester/ring
 ```
+**Expected:** HTML with instance state (e.g. ACTIVE).
 
-**Expected Output (HTML page showing):**
-```
-Instance ID    | State  | Address        | Tokens
----------------|--------|----------------|-------
-<container_id> | ACTIVE | 172.17.0.2:9095| 128
-```
-
-### Step 9: Check Configuration
+### 7. Check configuration
 ```bash
 curl http://localhost:9009/config | head -30
 ```
 
-**Expected Output:**
-```
-target: all
-auth_enabled: true
-server:
-  http_listen_port: 9009
-  grpc_listen_port: 9095
-...
-```
-
-### Step 10: Verify Storage Directories
+### 8. Verify storage directories
 ```bash
-docker exec cortex-simple ls -la /tmp/ | grep cortex
+docker compose exec cortex ls -la /tmp/ | grep cortex
 ```
+**Expected:** cortex-alertmanager, cortex-compactor, cortex-data, cortex-rules, cortex-sync, cortex-tsdb.
 
-**Expected Output:**
-```
-drwxr-xr-x    2 root     root          4096 ... cortex-alertmanager
-drwxr-xr-x    2 root     root          4096 ... cortex-compactor
-drwxr-xr-x    2 root     root          4096 ... cortex-data
-drwxr-xr-x    2 root     root          4096 ... cortex-rules
-drwxr-xr-x    2 root     root          4096 ... cortex-sync
-drwxr-xr-x    2 root     root          4096 ... cortex-tsdb
-```
-
-### Step 11: Test Prometheus Remote Write API
-
-Create a test metric file:
-```bash
-cat > test-metric.txt << 'METRIC'
-# TYPE test_metric counter
-test_metric{job="test",instance="local"} 42
-METRIC
-```
-
-Push the metric to Cortex:
-```bash
-curl -X POST \
-  -H "Content-Type: text/plain" \
-  -H "X-Scope-OrgID: demo" \
-  --data-binary @test-metric.txt \
-  http://localhost:9009/api/v1/push
-```
-
-**Expected Output:**
-```
-(Empty response with HTTP 200 or 204)
-```
-
-### Step 12: Query the Pushed Metric
-
-Wait a few seconds, then query:
+### 9. Query Cortex (Prometheus API)
 ```bash
 curl -G 'http://localhost:9009/prometheus/api/v1/query' \
   -H "X-Scope-OrgID: demo" \
-  --data-urlencode 'query=test_metric'
+  --data-urlencode 'query=up'
 ```
+**Expected:** Valid JSON. With remote write disabled, Cortex stays up; Prometheus UI is at http://localhost:9093.
 
-**Expected Output:**
-```json
-{
-  "status": "success",
-  "data": {
-    "resultType": "vector",
-    "result": [
-      {
-        "metric": {
-          "instance": "local",
-          "job": "test"
-        },
-        "value": [<timestamp>, "42"]
-      }
-    ]
-  }
-}
-```
-
-### Step 13: List Available Metrics
+### 10. List available metric names
 ```bash
 curl -H "X-Scope-OrgID: demo" \
   http://localhost:9009/prometheus/api/v1/label/__name__/values
 ```
 
-**Expected Output:**
-```json
-{
-  "status": "success",
-  "data": ["test_metric"]
-}
-```
-
-### Step 14: Access Interactive Shell
+### 11. Access interactive shell
 ```bash
-docker exec -it cortex-simple sh
+docker compose exec cortex sh
 ```
-
 Inside the container:
 ```bash
-# Check running process
 ps aux | grep cortex
-
-# Check storage directories
 ls -la /tmp/cortex-*
-
-# Check configuration
 cat /etc/cortex/config.yaml
-
-# Exit
 exit
 ```
 
-### Step 15: Monitor Container Resources
+### 12. Monitor container resources
 ```bash
-docker stats cortex-simple --no-stream
+docker compose stats --no-stream
 ```
 
-**Expected Output:**
-```
-CONTAINER ID   NAME           CPU %   MEM USAGE / LIMIT   NET I/O
-<id>           cortex-simple  X%      XXXMiB / XXXGiB     XXkB / XXkB
-```
-
-### Step 16: View Real-time Logs
+### 13. View real-time logs
 ```bash
-docker logs -f cortex-simple
+docker compose logs -f cortex
 ```
 
-## Cleanup
+### 14. Cleanup
 ```bash
-# Stop the container
-docker stop cortex-simple
-
-# Remove the container
-docker rm cortex-simple
-
-# Remove the image (optional)
-docker rmi cortex-simple:v1
-
-# Remove test files
-rm test-metric.txt
+docker compose down
 ```

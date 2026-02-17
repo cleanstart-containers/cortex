@@ -1,0 +1,37 @@
+services:
+  cortex:
+    build: .
+    ports:
+      - "9009:9009"
+      - "9095:9095"
+    restart: on-failure
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:9009/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+  metrics:
+    image: python:3-alpine
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: python -u serve_metrics.py
+    expose:
+      - "9090"
+
+  prometheus:
+    image: prom/prometheus:v2.40.0
+    volumes:
+      - ./prometheus-docker.yml:/etc/prometheus/prometheus.yml
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+    ports:
+      - "9093:9090"
+    depends_on:
+      cortex:
+        condition: service_healthy
+      metrics:
+        condition: service_started
